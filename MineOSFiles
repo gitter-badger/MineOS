@@ -1,0 +1,170 @@
+inputTable = {
+  [ ".assets" ] = {
+    desktop = "\
+\
+\
+                    fffffffff\
+               fffff111111111fff\
+              ff111111111111111fff\
+              f111111101101111111ff\
+              f1111111111111111111f\
+              f1111111000011111111f\
+               fff1111111111111111f\
+                 ffff111111111ffff\
+                     ffffffffff",
+  },
+  [ ".code" ] = {
+    mineos = "--Variables\
+versionString = \"MineOS v1.0\"\
+running = true\
+_sm = false\
+aDesktop = paintutils.loadImage(\"/os/.assets/desktop\")\
+\
+--Functions\
+\
+function clear()\
+  term.clear()\
+  term.setCursorPos(1,1)\
+end\
+\
+function drawDesktop()\
+  term.setBackgroundColor(colors.lightGray)\
+  clear()\
+  paintutils.drawImage(aDesktop,1,1)\
+  mx, my = term.getSize()\
+  term.setCursorPos(1,my)\
+  term.setBackgroundColor(colors.lightBlue)\
+  term.clearLine()\
+  term.setCursorPos(1,my)\
+  term.setBackgroundColor(colors.lime)\
+  term.setTextColor(colors.white)\
+  write(\"[START]\")\
+  term.setBackgroundColor(colors.lightGray)\
+  term.setTextColor(colors.black)\
+end\
+\
+function stop()\
+  term.setBackgroundColor(colors.black)\
+  term.setTextColor(colors.lime)\
+  clear()\
+  print(\"Thanks for using \"..versionString..\"!\")\
+  sleep(3)\
+  os.shutdown()\
+end\
+\
+function redraw()\
+  drawDesktop()\
+  if _sm then\
+    drawStartMenu()\
+  end\
+end\
+\
+function drawStartMenu()\
+  term.setBackgroundColor(colors.white)\
+  term.setTextColor(colors.red)\
+  term.setCursorPos(1,my-5)\
+  write(\"[shell]   \")\
+  term.setCursorPos(1,my-4)\
+  write(\"[shutdown]\")\
+  term.setCursorPos(1,my-3)\
+  write(\"[ide]     \")\
+  term.setCursorPos(1,my-2)\
+  write(\"[debug]   \")\
+  term.setCursorPos(1,my-1)\
+  write(\"[about]   \")\
+end\
+\
+function drawDebug()\
+  _sm = false\
+  term.setBackgroundColor(colors.black)\
+  term.setTextColor(colors.white)\
+  clear()\
+  print(\"DEBUG: PRESS ANY KEY TO EXIT\")\
+  print(\"Current version string: \"..versionString)\
+  local tKEY = { os.pullEvent(\"key\") }\
+  redraw()\
+end\
+\
+function drawAbout()\
+  term.setBackgroundColor(colors.lightGray)\
+  term.setTextColor(colors.gray)\
+  clear()\
+  print(\"About\")\
+  print(\"OS: \"..versionString)\
+  print(\"Press any key to return to the operating system.\")\
+  local tKey = { os.pullEvent(\"key\") }\
+  redraw()\
+end\
+\
+function runtime()\
+  while running do\
+    local event, button, x, y = os.pullEvent(\"mouse_click\")\
+    if button == 1 and not _sm and x < 8 and y == my then\
+      drawStartMenu()\
+      _sm = true\
+    elseif button == 1 and _sm and x < 8 and y == my then\
+      _sm = false\
+      drawDesktop()\
+    elseif button == 1 and _sm and x < 11 and y == my-5 then\
+      running = false\
+      term.setBackgroundColor(colors.black)\
+      term.setTextColor(colors.white)\
+      clear()\
+      print(\"Exiting to native shell...\")\
+      sleep(1)\
+      clear()\
+      shell.run(\"/rom/programs/shell\")\
+    elseif button == 1 and _sm and x < 11 and y == my-4 then\
+      running = false\
+      stop()\
+      break\
+    elseif button == 1 and _sm and x < 11 and y == my-3 then\
+      shell.run(\"edit /os/.code/mineos\")\
+      shell.run(\"/os/.code/mineos\")\
+    elseif button == 1 and _sm and x < 11 and y == my-2 then\
+\009  drawDebug()\
+\009elseif button == 1 and _sm and x < 11 and y == my-1 then\
+\009  drawAbout()\
+    end\
+  end\
+end\
+\
+function init()\
+  drawDesktop()\
+  runtime()\
+end\
+\
+--Begin program!\
+init()",
+  },
+}
+
+
+
+
+
+
+
+
+local function writeFile(path,content)
+	local file = fs.open(path,"w")
+	file.write(content)
+	file.close()
+end
+function writeDown(input,dir)
+		for i,v in pairs(input) do
+		if type(v) == "table" then
+			writeDown(v,dir.."/"..i)
+		elseif type(v) == "string" then
+			writeFile(dir.."/"..i,v)
+		end
+	end
+end
+
+args = {...}
+if #args == 0 then
+	print("Please input a destination folder.")
+else
+	writeDown(inputTable,args[1])
+end
+
