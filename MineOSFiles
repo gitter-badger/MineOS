@@ -19,7 +19,7 @@ versionString = \"MineOS v1.0\"\
 running = true\
 _sm = false\
 _cm = false\
-diskMode = false\
+diskMode = true\
 aDesktop = paintutils.loadImage((diskMode and \"/disk\" or \"\")..\"/os/.assets/desktop\")\
 passwordFile = (diskMode and \"/disk\" or \"\")..\"/os/.mineospassword\"\
 usernameFile = (diskMode and \"/disk\" or \"\")..\"/os/.mineosusername\"\
@@ -79,6 +79,38 @@ function getUserName()\
   local ret = h.readAll()\
   h.close()\
   return ret\
+end\
+\
+function drawEditGUI()\
+  term.setBackgroundColor(colors.lightGray)\
+  term.setTextColor(colors.black)\
+  clear()\
+  print(\"Enter file to edit: \")\
+  term.setBackgroundColor(colors.gray)\
+  term.clearLine()\
+  write(\"> \")\
+  local input = read()\
+  term.setBackgroundColor(colors.lightGray)\
+  shell.run(\"edit\",input)\
+  _sm = false\
+  redraw()\
+end\
+\
+function drawRunGUI()\
+  term.setBackgroundColor(colors.lightGray)\
+  term.setTextColor(colors.black)\
+  clear()\
+  print(\"Enter file to run:\")\
+  term.setBackgroundColor(colors.gray)\
+  term.clearLine()\
+  write(\"> \")\
+  local input = read()\
+  term.setBackgroundColor(colors.lightGray)\
+  shell.run(input)\
+  print(\"[MineOS] Press a key to continue...\")\
+  local tKey = { os.pullEvent(\"key\") }\
+  _sm = false\
+  redraw()\
 end\
 \
 function drawDesktop()\
@@ -206,6 +238,10 @@ end\
 function drawStartMenu()\
   term.setBackgroundColor(colors.white)\
   term.setTextColor(colors.red)\
+  term.setCursorPos(1,my-7)\
+  write(\"[run]     \")\
+  term.setCursorPos(1,my-6)\
+  write(\"[edit]    \")\
   term.setCursorPos(1,my-5)\
   write(\"[shell]   \")\
   term.setCursorPos(1,my-4)\
@@ -249,6 +285,10 @@ function runtime()\
     elseif button == 1 and _sm and x < 8 and y == my then\
       _sm = false\
       drawDesktop()\
+    elseif button == 1 and _sm and x < 11 and y == my-7 then\
+      drawRunGUI()\
+    elseif button == 1 and _sm and x < 11 and y == my-6 then\
+      drawEditGUI()\
     elseif button == 1 and _sm and x < 11 and y == my-5 then\
       running = false\
       term.setBackgroundColor(colors.black)\
