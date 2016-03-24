@@ -1,18 +1,5 @@
 inputTable = {
-  [ ".assets" ] = {
-    desktop = "\
-\
-\
-                    fffffffff\
-               fffff111111111fff\
-              ff111111111111111fff\
-              f111111101101111111ff\
-              f1111111111111111111f\
-              f1111111000011111111f\
-               fff1111111111111111f\
-                 ffff111111111ffff\
-                     ffffffffff",
-  },
+  [ ".mineospassword" ] = "07123e1f482356c415f684407a3b8723e10b2cbbc0b8fcd6282c49d37c9c1abc",
   [ ".code" ] = {
     mineos = "--Variables\
 versionString = \"MineOS v1.0\"\
@@ -20,9 +7,14 @@ running = true\
 _sm = false\
 _cm = false\
 diskMode = false\
-aDesktop = paintutils.loadImage((diskMode and \"/disk\" or \"\")..\"/os/.assets/desktop\")\
+aDesktopPath = (diskMode and \"/disk\" or \"\")..\"/os/.assets/desktop\"\
+aDesktop = paintutils.loadImage(aDesktopPath)\
 passwordFile = (diskMode and \"/disk\" or \"\")..\"/os/.mineospassword\"\
 usernameFile = (diskMode and \"/disk\" or \"\")..\"/os/.mineosusername\"\
+encryptFile = (diskMode and \"/disk\" or \"\")..\"/os/.code/sha2\"\
+\
+--Loading APIs\
+os.loadAPI(encryptFile)\
 \
 --Functions\
 \
@@ -50,7 +42,7 @@ function drawPasswordEntry()\
     local input = read(\"*\")\
     term.setBackgroundColor(colors.lightGray)\
     local h = fs.open(passwordFile,\"w\")\
-    h.write(input)\
+    h.write(sha2.sha256(input))\
     h.close()\
     print(\"Password saved!\")\
   else\
@@ -63,7 +55,7 @@ function drawPasswordEntry()\
     local h = fs.open(passwordFile,\"r\")\
     local pass = h.readAll()\
     h.close()\
-    if pass ~= input then\
+    if pass ~= sha2.sha256(input) then\
       print(\"Password incorrect!\")\
       sleep(3)\
       os.reboot()\
@@ -144,6 +136,8 @@ function drawControlMenu()\
   print(\"[Change Username]\")\
   print(\"\")\
   print(\"[Delete Username]\")\
+  print(\"\")\
+  print(\"[Edit Desktop]\")\
   while _cm do\
     local event,button,x,y = os.pullEvent(\"mouse_click\")\
     if button == 1 and y == 3 and x < 18 then\
@@ -172,7 +166,7 @@ function drawControlMenu()\
       term.setBackgroundColor(colors.lightGray)\
       _cm = false\
       local r = fs.open(passwordFile,\"r\")\
-      if r.readAll() ~= oldPass then\
+      if r.readAll() ~= sha2.sha256(oldPass) then\
         print(\"Incorrect password!\")\
         r.close()\
         sleep(3)\
@@ -180,13 +174,13 @@ function drawControlMenu()\
       else\
         r.close()\
         local h = fs.open(passwordFile,\"w\")\
-        h.write(input)\
+        h.write(sha2.sha256(input))\
         h.close()\
         redraw()\
       end\
       else\
         local h = fs.open(passwordFile,\"w\")\
-        h.write(input)\
+        h.write(sha2.sha256(input))\
         h.close()\
         redraw()\
       end\
@@ -215,6 +209,11 @@ function drawControlMenu()\
       end\
       _cm = false\
       redraw()\
+    elseif button == 1 and y == 11 and x < 18 then\
+      shell.run(\"paint \"..aDesktopPath)\
+      print(\"Rebooting...\")\
+      sleep(1)\
+      os.reboot()\
     end\
   end\
 end\
@@ -222,6 +221,7 @@ end\
 function stop()\
   term.setBackgroundColor(colors.black)\
   term.setTextColor(colors.lime)\
+  os.unloadAPI(encryptFile)\
   clear()\
   print(\"Thanks for using \"..versionString..\"!\")\
   sleep(3)\
@@ -276,6 +276,16 @@ function drawAbout()\
   redraw()\
 end\
 \
+function drawInstallGoldRunnerGUI()\
+  term.setBackgroundColor(colors.gray)\
+  term.setTextColor(colors.white)\
+  clear()\
+  shell.run(\"pastebin run YRFeS0G3\")\
+  sleep(3)\
+  _sm = false\
+  redraw()\
+end\
+\
 function runtime()\
   while running do\
     local event, button, x, y = os.pullEvent(\"mouse_click\")\
@@ -285,6 +295,14 @@ function runtime()\
     elseif button == 1 and _sm and x < 8 and y == my then\
       _sm = false\
       drawDesktop()\
+    elseif button == 1 and _sm and x < 11 and y == my-8 then\
+      if fs.exists(\"/goldrunner/GoldRunner\") then\
+        shell.run(\"cd /goldrunner\")\
+        shell.run(\"GoldRunner\")\
+        os.reboot()\
+      else\
+        drawInstallGoldRunnerGUI()\
+      end\
     elseif button == 1 and _sm and x < 11 and y == my-7 then\
       drawRunGUI()\
     elseif button == 1 and _sm and x < 11 and y == my-6 then\
@@ -293,6 +311,7 @@ function runtime()\
       running = false\
       term.setBackgroundColor(colors.black)\
       term.setTextColor(colors.white)\
+      os.unloadAPI(encryptFile)\
       clear()\
       print(\"Exiting to native shell...\")\
       sleep(1)\
@@ -304,7 +323,7 @@ function runtime()\
       break\
     elseif button == 1 and _sm and x < 11 and y == my-3 then\
       shell.run(\"edit \"..(diskMode and \"/disk\" or \"\")..\"/os/.code/mineos\")\
-      shell.run((diskMode and \"/disk\" or \"\")..\"/os/.code/mineos\")\
+      os.reboot()\
     elseif button == 1 and _sm and x < 11 and y == my-2 then\
 \009     _cm = true\
       _sm = false\
@@ -324,7 +343,215 @@ end\
 \
 --Begin program!\
 init()",
+    sha2 = "--  \
+--\009Adaptation of GravityScore's SHA2 code to be an API. \
+--\
+--  Adaptation of the Secure Hashing Algorithm (SHA-244/256)\
+--  Found Here: http://lua-users.org/wiki/SecureHashAlgorithm\
+--  \
+--  Using an adapted version of the bit library\
+--  Found Here: https://bitbucket.org/Boolsheet/bslf/src/1ee664885805/bit.lua\
+--  \
+\
+local MOD = 2^32\
+local MODM = MOD-1\
+\
+local function memoize(f)\
+\009local mt = {}\
+\009local t = setmetatable({}, mt)\
+\009function mt:__index(k)\
+\009\009local v = f(k)\
+\009\009t[k] = v\
+\009\009return v\
+\009end\
+\009return t\
+end\
+\
+local function make_bitop_uncached(t, m)\
+\009local function bitop(a, b)\
+\009\009local res,p = 0,1\
+\009\009while a ~= 0 and b ~= 0 do\
+\009\009\009local am, bm = a % m, b % m\
+\009\009\009res = res + t[am][bm] * p\
+\009\009\009a = (a - am) / m\
+\009\009\009b = (b - bm) / m\
+\009\009\009p = p*m\
+\009\009end\
+\009\009res = res + (a + b) * p\
+\009\009return res\
+\009end\
+\009return bitop\
+end\
+\
+local function make_bitop(t)\
+\009local op1 = make_bitop_uncached(t,2^1)\
+\009local op2 = memoize(function(a) return memoize(function(b) return op1(a, b) end) end)\
+\009return make_bitop_uncached(op2, 2 ^ (t.n or 1))\
+end\
+\
+local bxor1 = make_bitop({[0] = {[0] = 0,[1] = 1}, [1] = {[0] = 1, [1] = 0}, n = 4})\
+\
+local function bxor(a, b, c, ...)\
+\009local z = nil\
+\009if b then\
+\009\009a = a % MOD\
+\009\009b = b % MOD\
+\009\009z = bxor1(a, b)\
+\009\009if c then z = bxor(z, c, ...) end\
+\009\009return z\
+\009elseif a then return a % MOD\
+\009else return 0 end\
+end\
+\
+local function band(a, b, c, ...)\
+\009local z\
+\009if b then\
+\009\009a = a % MOD\
+\009\009b = b % MOD\
+\009\009z = ((a + b) - bxor1(a,b)) / 2\
+\009\009if c then z = bit32_band(z, c, ...) end\
+\009\009return z\
+\009elseif a then return a % MOD\
+\009else return MODM end\
+end\
+\
+local function bnot(x) return (-1 - x) % MOD end\
+\
+local function rshift1(a, disp)\
+\009if disp < 0 then return lshift(a,-disp) end\
+\009return math.floor(a % 2 ^ 32 / 2 ^ disp)\
+end\
+\
+local function rshift(x, disp)\
+\009if disp > 31 or disp < -31 then return 0 end\
+\009return rshift1(x % MOD, disp)\
+end\
+\
+local function lshift(a, disp)\
+\009if disp < 0 then return rshift(a,-disp) end \
+\009return (a * 2 ^ disp) % 2 ^ 32\
+end\
+\
+local function rrotate(x, disp)\
+    x = x % MOD\
+    disp = disp % 32\
+    local low = band(x, 2 ^ disp - 1)\
+    return rshift(x, disp) + lshift(low, 32 - disp)\
+end\
+\
+local k = {\
+\0090x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,\
+\0090x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,\
+\0090xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,\
+\0090x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,\
+\0090xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc,\
+\0090x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,\
+\0090x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,\
+\0090xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,\
+\0090x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,\
+\0090x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,\
+\0090xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3,\
+\0090xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,\
+\0090x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5,\
+\0090x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,\
+\0090x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,\
+\0090x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,\
+}\
+\
+local function str2hexa(s)\
+\009return (string.gsub(s, \".\", function(c) return string.format(\"%02x\", string.byte(c)) end))\
+end\
+\
+local function num2s(l, n)\
+\009local s = \"\"\
+\009for i = 1, n do\
+\009\009local rem = l % 256\
+\009\009s = string.char(rem) .. s\
+\009\009l = (l - rem) / 256\
+\009end\
+\009return s\
+end\
+\
+local function s232num(s, i)\
+\009local n = 0\
+\009for i = i, i + 3 do n = n*256 + string.byte(s, i) end\
+\009return n\
+end\
+\
+local function preproc(msg, len)\
+\009local extra = 64 - ((len + 9) % 64)\
+\009len = num2s(8 * len, 8)\
+\009msg = msg .. \"\\128\" .. string.rep(\"\\0\", extra) .. len\
+\009assert(#msg % 64 == 0)\
+\009return msg\
+end\
+\
+local function initH256(H)\
+\009H[1] = 0x6a09e667\
+\009H[2] = 0xbb67ae85\
+\009H[3] = 0x3c6ef372\
+\009H[4] = 0xa54ff53a\
+\009H[5] = 0x510e527f\
+\009H[6] = 0x9b05688c\
+\009H[7] = 0x1f83d9ab\
+\009H[8] = 0x5be0cd19\
+\009return H\
+end\
+\
+local function digestblock(msg, i, H)\
+\009local w = {}\
+\009for j = 1, 16 do w[j] = s232num(msg, i + (j - 1)*4) end\
+\009for j = 17, 64 do\
+\009\009local v = w[j - 15]\
+\009\009local s0 = bxor(rrotate(v, 7), rrotate(v, 18), rshift(v, 3))\
+\009\009v = w[j - 2]\
+\009\009w[j] = w[j - 16] + s0 + w[j - 7] + bxor(rrotate(v, 17), rrotate(v, 19), rshift(v, 10))\
+\009end\
+\
+\009local a, b, c, d, e, f, g, h = H[1], H[2], H[3], H[4], H[5], H[6], H[7], H[8]\
+\009for i = 1, 64 do\
+\009\009local s0 = bxor(rrotate(a, 2), rrotate(a, 13), rrotate(a, 22))\
+\009\009local maj = bxor(band(a, b), band(a, c), band(b, c))\
+\009\009local t2 = s0 + maj\
+\009\009local s1 = bxor(rrotate(e, 6), rrotate(e, 11), rrotate(e, 25))\
+\009\009local ch = bxor (band(e, f), band(bnot(e), g))\
+\009\009local t1 = h + s1 + ch + k[i] + w[i]\
+\009\009h, g, f, e, d, c, b, a = g, f, e, d + t1, c, b, a, t1 + t2\
+\009end\
+\
+\009H[1] = band(H[1] + a)\
+\009H[2] = band(H[2] + b)\
+\009H[3] = band(H[3] + c)\
+\009H[4] = band(H[4] + d)\
+\009H[5] = band(H[5] + e)\
+\009H[6] = band(H[6] + f)\
+\009H[7] = band(H[7] + g)\
+\009H[8] = band(H[8] + h)\
+end\
+\
+function sha256(msg)\
+\009msg = preproc(msg, #msg)\
+\009local H = initH256({})\
+\009for i = 1, #msg, 64 do digestblock(msg, i, H) end\
+\009return str2hexa(num2s(H[1], 4) .. num2s(H[2], 4) .. num2s(H[3], 4) .. num2s(H[4], 4) ..\
+\009\009num2s(H[5], 4) .. num2s(H[6], 4) .. num2s(H[7], 4) .. num2s(H[8], 4))\
+end",
   },
+  [ ".assets" ] = {
+    desktop = "\
+\
+\
+                    fffffffff\
+               fffff111111111fff\
+              ff111111111111111fff\
+              f111111101101111111ff\
+              f1111111111111111111f\
+              f1111111000011111111f\
+               fff1111111111111111f\
+                 ffff111111111ffff\
+                     ffffffffff",
+  },
+  [ ".mineosusername" ] = "Peridot",
 }
 
 
