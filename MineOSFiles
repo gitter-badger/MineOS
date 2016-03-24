@@ -18,13 +18,67 @@ inputTable = {
 versionString = \"MineOS v1.0\"\
 running = true\
 _sm = false\
-aDesktop = paintutils.loadImage(\"/os/.assets/desktop\")\
+_cm = false\
+diskMode = false\
+aDesktop = paintutils.loadImage((diskMode and \"/disk\" or \"\")..\"/os/.assets/desktop\")\
+passwordFile = (diskMode and \"/disk\" or \"\")..\"/os/.mineospassword\"\
+usernameFile = (diskMode and \"/disk\" or \"\")..\"/os/.mineosusername\"\
 \
 --Functions\
 \
 function clear()\
   term.clear()\
   term.setCursorPos(1,1)\
+end\
+\
+function drawPasswordEntry()\
+  term.setBackgroundColor(colors.lightGray)\
+  term.setTextColor(colors.black)\
+  clear()\
+  local x,y = term.getSize()\
+  local center = y/2\
+  term.setCursorPos(1,center)\
+  term.setBackgroundColor(colors.gray)\
+  term.clearLine()\
+  term.setBackgroundColor(colors.lightGray)\
+  term.setCursorPos(1,center-2)\
+  if not fs.exists(passwordFile) then\
+    print(\"Password not found!\")\
+    print(\"Enter password to use for this installation: \")\
+    term.setBackgroundColor(colors.gray)\
+    write(\"> \")\
+    local input = read(\"*\")\
+    term.setBackgroundColor(colors.lightGray)\
+    local h = fs.open(passwordFile,\"w\")\
+    h.write(input)\
+    h.close()\
+    print(\"Password saved!\")\
+  else\
+    print(\"Authentication required!\")\
+    print(\"Enter Password: \")\
+    term.setBackgroundColor(colors.gray)\
+    write(\"> \")\
+    local input = read(\"*\")\
+    term.setBackgroundColor(colors.lightGray)\
+    local h = fs.open(passwordFile,\"r\")\
+    local pass = h.readAll()\
+    h.close()\
+    if pass ~= input then\
+      print(\"Password incorrect!\")\
+      sleep(3)\
+      os.reboot()\
+    else\
+      print(\"Welcome, \"..(fs.exists(usernameFile) and getUserName() or \"user\")..\"!\")\
+      sleep(3)\
+    end\
+  end\
+end\
+\
+function getUserName()\
+  local h = fs.open(usernameFile,\"r\")\
+  local ret = h.readAll()\
+  h.close()\
+  return ret\
 end\
 \
 function drawDesktop()\
@@ -41,6 +95,96 @@ function drawDesktop()\
   write(\"[START]\")\
   term.setBackgroundColor(colors.lightGray)\
   term.setTextColor(colors.black)\
+  term.setCursorPos(1,1)\
+  write(versionString)\
+end\
+\
+function drawControlMenu()\
+  term.setBackgroundColor(colors.lightGray)\
+  term.setTextColor(colors.black)\
+  clear()\
+  print(\"Control Menu\")\
+  print(\"\")\
+  print(\"[Delete Password]\")\
+  print(\"\")\
+  print(\"[Change Password]\")\
+  print(\"\")\
+  print(\"[Change Username]\")\
+  print(\"\")\
+  print(\"[Delete Username]\")\
+  while _cm do\
+    local event,button,x,y = os.pullEvent(\"mouse_click\")\
+    if button == 1 and y == 3 and x < 18 then\
+      clear()\
+      write(\"Are you sure?(y/N): \")\
+      local input = read()\
+      if input == \"y\" or input == \"Y\" then\
+        fs.delete(passwordFile)\
+      end\
+      _cm = false\
+      redraw()\
+    elseif button == 1 and y == 5 and x < 18 then\
+      clear()\
+      print(\"Enter new password:\")\
+      term.setBackgroundColor(colors.gray)\
+      term.clearLine()\
+      write(\"> \")\
+      local input = read(\"*\")\
+      term.setBackgroundColor(colors.lightGray)\
+      if fs.exists(passwordFile) then\
+      print(\"Enter old password:\")\
+      term.setBackgroundColor(colors.gray)\
+      term.clearLine()\
+      write(\"> \")\
+      local oldPass = read(\"*\")\
+      term.setBackgroundColor(colors.lightGray)\
+      _cm = false\
+      local r = fs.open(passwordFile,\"r\")\
+      if r.readAll() ~= oldPass then\
+        print(\"Incorrect password!\")\
+        r.close()\
+        sleep(3)\
+        redraw()\
+      else\
+        r.close()\
+        local h = fs.open(passwordFile,\"w\")\
+        h.write(input)\
+        h.close()\
+        redraw()\
+      end\
+      else\
+        local h = fs.open(passwordFile,\"w\")\
+        h.write(input)\
+        h.close()\
+        redraw()\
+      end\
+    elseif button == 1 and y == 7 and x < 18 then\
+      clear()\
+      if fs.exists(usernameFile) then\
+        local h = fs.open(usernameFile,\"r\")\
+        local name = h.readAll()\
+        h.close()\
+        print(\"Current user name: \"..name)\
+        write(\"Change \"..name..\" to: \")\
+      else\
+        write(\"Set username to: \")\
+      end\
+      local input = read()\
+      local w = fs.open(usernameFile,\"w\")\
+      w.write(input)\
+      w.close()\
+      _cm = false\
+      redraw()\
+    elseif button == 1 and y == 9 and x < 18 then\
+      clear()\
+      write(\"Are you sure?(y/N): \")\
+      if read():lower() == \"y\" then\
+        fs.delete(usernameFile)\
+      end\
+      _cm = false\
+      redraw()\
+    end\
+  end\
 end\
 \
 function stop()\
@@ -69,7 +213,7 @@ function drawStartMenu()\
   term.setCursorPos(1,my-3)\
   write(\"[ide]     \")\
   term.setCursorPos(1,my-2)\
-  write(\"[debug]   \")\
+  write(\"[cp]      \")\
   term.setCursorPos(1,my-1)\
   write(\"[about]   \")\
 end\
@@ -119,17 +263,21 @@ function runtime()\
       stop()\
       break\
     elseif button == 1 and _sm and x < 11 and y == my-3 then\
-      shell.run(\"edit /os/.code/mineos\")\
-      shell.run(\"/os/.code/mineos\")\
+      shell.run(\"edit \"..(diskMode and \"/disk\" or \"\")..\"/os/.code/mineos\")\
+      shell.run((diskMode and \"/disk\" or \"\")..\"/os/.code/mineos\")\
     elseif button == 1 and _sm and x < 11 and y == my-2 then\
-\009  drawDebug()\
-\009elseif button == 1 and _sm and x < 11 and y == my-1 then\
-\009  drawAbout()\
+\009     _cm = true\
+      _sm = false\
+      drawControlMenu()\
+   \009elseif button == 1 and _sm and x < 11 and y == my-1 then\
+\009     _sm = false\
+      drawAbout()\
     end\
   end\
 end\
 \
 function init()\
+  drawPasswordEntry()\
   drawDesktop()\
   runtime()\
 end\

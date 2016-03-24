@@ -1,1 +1,1 @@
-shell.run("/os/.code/mineos")
+shell.run("os/.code/mineos")
